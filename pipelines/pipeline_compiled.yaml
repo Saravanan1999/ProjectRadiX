@@ -1,0 +1,126 @@
+# PIPELINE DEFINITION
+# Name: two-step-pipeline
+# Description: A pipeline with preprocessing and training steps.
+# Inputs:
+#    env: str [Default: 'Local']
+components:
+  comp-preprocessing-component:
+    executorLabel: exec-preprocessing-component
+    inputDefinitions:
+      parameters:
+        env:
+          defaultValue: Local
+          isOptional: true
+          parameterType: STRING
+  comp-training-component:
+    executorLabel: exec-training-component
+    inputDefinitions:
+      parameters:
+        env:
+          defaultValue: Local
+          isOptional: true
+          parameterType: STRING
+deploymentSpec:
+  executors:
+    exec-preprocessing-component:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - preprocessing_component
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.11.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef preprocessing_component(env: str = \"Local\"):\n    import random\n\
+          \    import logging\n\n    # Configure logging\n    logging.basicConfig(level=logging.INFO)\n\
+          \    logger = logging.getLogger(__name__)\n\n    logger.info(f\"[Preprocessing]\
+          \ ENV: {env}\")\n    random_int = random.randint(1, 100)\n    logger.info(f\"\
+          [Preprocessing] Random integer: {random_int}\")\n\n"
+        image: python:3.9
+    exec-training-component:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - training_component
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.11.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef training_component(env: str = \"Local\"):\n    import random\n\
+          \    import logging\n\n    # Configure logging\n    logging.basicConfig(level=logging.INFO)\n\
+          \    logger = logging.getLogger(__name__)\n\n    logger.info(f\"[Training]\
+          \ ENV: {env}\")\n    random_int = random.randint(1, 100)\n    logger.info(f\"\
+          [Training] Random integer: {random_int}\")\n\n"
+        image: python:3.9
+pipelineInfo:
+  description: A pipeline with preprocessing and training steps.
+  name: two-step-pipeline
+root:
+  dag:
+    tasks:
+      preprocessing-component:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-preprocessing-component
+        inputs:
+          parameters:
+            env:
+              componentInputParameter: env
+        taskInfo:
+          name: preprocessing-component
+      training-component:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-training-component
+        dependentTasks:
+        - preprocessing-component
+        inputs:
+          parameters:
+            env:
+              componentInputParameter: env
+        taskInfo:
+          name: training-component
+  inputDefinitions:
+    parameters:
+      env:
+        defaultValue: Local
+        isOptional: true
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.11.0

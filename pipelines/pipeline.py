@@ -1,25 +1,50 @@
-import kfp
+import random
 from kfp import dsl
+from kfp.dsl import component
 
-# Load component definitions
-generate_input_op = dsl.load_component_from_file('components/generate_input_component.yaml')
-preprocess_op = dsl.load_component_from_file('components/preprocess_component.yaml')
-train_op = dsl.load_component_from_file('components/train_component.yaml')
+@component
+def preprocessing_component(env: str = "Local"):
+    import random
+    import logging
 
-@dsl.pipeline(
-    name='Direct Data Processing Pipeline',
-    description='A pipeline that generates input data, preprocesses it, and then trains a model.'
-)
-def direct_data_pipeline():
-    # Step 1: Generate Input Data
-    generate_input = generate_input_op()
-    
-    # Step 2: Preprocessing
-    preprocessing = preprocess_op(
-        input_data=generate_input.outputs['input_data']
+    # Configure logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    logger.info(f"[Preprocessing] ENV: {env}")
+    random_int = random.randint(1, 100)
+    logger.info(f"[Preprocessing] Random integer: {random_int}")
+
+@component
+def training_component(env: str = "Local"):
+    import random
+    import logging
+
+    # Configure logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    logger.info(f"[Training] ENV: {env}")
+    random_int = random.randint(1, 100)
+    logger.info(f"[Training] Random integer: {random_int}")
+
+@dsl.pipeline(name="two-step-pipeline", description="A pipeline with preprocessing and training steps.")
+def two_step_pipeline(env: str = "Local"):
+    """
+    Pipeline with two components: preprocessing and training.
+    """
+    # Step 1: Preprocessing
+    step_preprocessing = preprocessing_component(env=env)
+
+    # Step 2: Training (depends on preprocessing)
+    step_training = training_component(env=env).after(step_preprocessing)
+
+if __name__ == "__main__":
+    from kfp import compiler
+
+    # Compile the pipeline to a YAML
+    compiler.Compiler().compile(
+        pipeline_func=two_step_pipeline,
+        package_path="pipeline_compiled.yaml"
     )
-    
-    # Step 3: Training
-    training = train_op(
-        processed_data=preprocessing.outputs['processed_data']
-    )
+    print("Pipeline compiled! Upload 'pipeline_compiled.yaml' on Kubeflow UI.")
