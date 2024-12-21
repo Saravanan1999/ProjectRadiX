@@ -1,0 +1,19 @@
+name: Preprocessing
+description: Preprocesses input data and outputs processed data.
+inputs:
+  - {name: input_data, type: Dataset}
+outputs:
+  - {name: processed_data, type: Dataset}
+implementation:
+  container:
+    image: preprocessing-service:latest
+    command: [
+      "python",
+      "/app/preprocess.py"
+    ]
+    args: [
+      "--input_path", {inputPath: input_data},
+      "--output_path", "/output/processed_data.json"
+    ]
+    fileOutputs:
+      processed_data: "/output/processed_data.json"

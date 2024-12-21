@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-training-service
+  labels:
+    app: model-training-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: model-training-service
+  template:
+    metadata:
+      labels:
+        app: model-training-service
+    spec:
+      containers:
+      - name: model-training-service
+        image: model-training-service:latest
+        volumeMounts:
+        - name: output
+          mountPath: /output
+      volumes:
+      - name: output
+        emptyDir: {}

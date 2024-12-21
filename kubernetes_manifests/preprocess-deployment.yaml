@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: preprocessing-service
+  labels:
+    app: preprocessing-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: preprocessing-service
+  template:
+    metadata:
+      labels:
+        app: preprocessing-service
+    spec:
+      containers:
+      - name: preprocessing-service
+        image: preprocessing-service:latest
+        volumeMounts:
+        - name: output
+          mountPath: /output
+      volumes:
+      - name: output
+        emptyDir: {}

@@ -1,0 +1,114 @@
+{
+  "components": {
+    "comp-preprocess-op": {
+      "executorLabel": "exec-preprocess-op",
+      "outputDefinitions": {
+        "parameters": {
+          "Output": {
+            "parameterType": "STRING"
+          }
+        }
+      }
+    },
+    "comp-train-op": {
+      "executorLabel": "exec-train-op",
+      "inputDefinitions": {
+        "parameters": {
+          "processed_data": {
+            "parameterType": "STRING"
+          }
+        }
+      }
+    }
+  },
+  "deploymentSpec": {
+    "executors": {
+      "exec-preprocess-op": {
+        "container": {
+          "args": [
+            "--executor_input",
+            "{{$}}",
+            "--function_to_execute",
+            "preprocess_op"
+          ],
+          "command": [
+            "sh",
+            "-c",
+            "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'kfp==2.11.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"$0\" \"$@\"\n",
+            "sh",
+            "-ec",
+            "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef preprocess_op() -> str:\n    import subprocess\n    import json\n\n    # Call the preprocessing service (ClusterIP) using curl\n    result = subprocess.check_output([\n        \"curl\", \"-X\", \"POST\", \"-H\", \"Content-Type: application/json\",\n        \"-d\", '{\"input\": {\"example\": \"data\"}}', \"http://preprocessing-service/preprocess\"\n    ])\n    result_json = json.loads(result)\n    return result_json['processed_data']\n\n"
+          ],
+          "image": "python:3.9"
+        }
+      },
+      "exec-train-op": {
+        "container": {
+          "args": [
+            "--executor_input",
+            "{{$}}",
+            "--function_to_execute",
+            "train_op"
+          ],
+          "command": [
+            "sh",
+            "-c",
+            "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'kfp==2.11.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"$0\" \"$@\"\n",
+            "sh",
+            "-ec",
+            "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef train_op(processed_data: str):\n    import subprocess\n    import json\n\n    # Send processed_data to model training service\n    data_payload = json.dumps({\"processed_data\": processed_data})\n    result = subprocess.check_output([\n        \"curl\", \"-X\", \"POST\", \"-H\", \"Content-Type: application/json\",\n        \"-d\", data_payload, \"http://model-training-service/train\"\n    ])\n    print(\"Training service response:\", result.decode(\"utf-8\"))\n\n"
+          ],
+          "image": "python:3.9"
+        }
+      }
+    }
+  },
+  "pipelineInfo": {
+    "name": "local-test-pipeline"
+  },
+  "root": {
+    "dag": {
+      "tasks": {
+        "preprocess-op": {
+          "cachingOptions": {
+            "enableCache": true
+          },
+          "componentRef": {
+            "name": "comp-preprocess-op"
+          },
+          "taskInfo": {
+            "name": "preprocess-op"
+          }
+        },
+        "train-op": {
+          "cachingOptions": {
+            "enableCache": true
+          },
+          "componentRef": {
+            "name": "comp-train-op"
+          },
+          "dependentTasks": [
+            "preprocess-op"
+          ],
+          "inputs": {
+            "parameters": {
+              "processed_data": {
+                "taskOutputParameter": {
+                  "outputParameterKey": "Output",
+                  "producerTask": "preprocess-op"
+                }
+              }
+            }
+          },
+          "taskInfo": {
+            "name": "train-op"
+          }
+        }
+      }
+    }
+  },
+  "schemaVersion": "2.1.0",
+  "sdkVersion": "kfp-2.11.0"
+}
